@@ -1,16 +1,14 @@
 import glob
-#from itertools import chain
 import os
 import random
 
-#import matplotlib.pyplot as plt
 import numpy as np
-#import pandas as pd
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-#from linformer import Linformer
+
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import StepLR
@@ -20,13 +18,19 @@ from tqdm import tqdm
 
 from cvt import CvT
 
+# 训练图片路径
+train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
+#train_dir = 'data/test'
+
 
 # Training settings
-batch_size = 64
+batch_size = 24
 epochs = 20
 lr = 3e-5
 gamma = 0.7
 seed = 42
+
+print(f"batch_size={batch_size}, epochs={epochs}, lr={lr}")
 
 
 def seed_everything(seed):
@@ -41,32 +45,32 @@ def seed_everything(seed):
 seed_everything(seed)
 
 
-#device = 'cuda'
+#device = 'cpu'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-os.makedirs('data', exist_ok=True)
-train_dir = 'data/train3'
-test_dir = 'data/test3'
+print(f"Device: {device}")
 
+os.makedirs('data', exist_ok=True)
+
+# 准备 labels
+label_list = os.listdir(train_dir)
+label_dict = { v:i for i,v in enumerate(label_list)}
+
+print(f"num_classes: {len(label_list)}")
 
 # load data
 train_list = glob.glob(os.path.join(train_dir+'/*','*.jpg'))
-test_list = glob.glob(os.path.join(test_dir+'/*', '*.jpg'))
 
 print(f"Train Data: {len(train_list)}")
-print(f"Test Data: {len(test_list)}")
 
 labels = [path.split('/')[-2] for path in train_list]
 
 # split
-train_list, valid_list = train_test_split(train_list, 
-                                          test_size=0.2,
-                                          stratify=labels,
-                                          random_state=seed)
+train_list, valid_list = train_test_split(train_list, test_size=0.2, stratify=labels, random_state=seed)
 
-print(f"Train Data: {len(train_list)}")
-print(f"Validation Data: {len(valid_list)}")
-print(f"Test Data: {len(test_list)}")
+print(f"Train Set: {len(train_list)}")
+print(f"Validation Set: {len(valid_list)}")
+
 
 # Image Augumentation
 train_transforms = transforms.Compose(
@@ -116,24 +120,29 @@ class FaceDataset(Dataset):
 
         label = img_path.split("/")[-2]
 
-        return img_transformed, label
+        return img_transformed, label_dict[label]
 
 train_data = FaceDataset(train_list, transform=train_transforms)
 valid_data = FaceDataset(valid_list, transform=test_transforms)
-test_data = FaceDataset(test_list, transform=test_transforms)
 
 train_loader = DataLoader(dataset = train_data, batch_size=batch_size, shuffle=True )
 valid_loader = DataLoader(dataset = valid_data, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(dataset = test_data, batch_size=batch_size, shuffle=True)
-
-
-print(len(train_data), len(train_loader))
-print(len(valid_data), len(valid_loader))
 
 
 # Visual Transformer
-model = CvT(image_size=224, in_channels=3, num_classes=51)
+model = CvT(
+    image_size=224, 
+    in_channels=3, 
+    num_classes=len(label_list),
+    #dim=8,
+    #scale_dim=4,
+    #heads=[1, 1, 1],
+    #depth = [1, 2, 2]
+    ).to(device)
 
+parameters = filter(lambda p: p.requires_grad, model.parameters())
+parameters = sum([np.prod(p.size()) for p in parameters]) / 1_000_000
+print('Trainable Parameters: %.3fM' % parameters)
 
 # Training
 
@@ -145,13 +154,15 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 # scheduler
 scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
 
+
+
 for epoch in range(epochs):
     epoch_loss = 0
     epoch_accuracy = 0
 
     for data, label in tqdm(train_loader):
-        #data = data.to(device)
-        #label = label.to(device)
+        data = data.to(device)
+        label = label.to(device)
 
         output = model(data)
         loss = criterion(output, label)
