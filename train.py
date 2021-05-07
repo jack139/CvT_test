@@ -23,8 +23,8 @@ CHECKPOINT = 'checkpoint.pt'
 total_epochs = 0
 
 # 训练图片路径
-#train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
-train_dir = 'data/test'
+train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
+#train_dir = 'data/test'
 
 
 # Training settings
@@ -68,7 +68,10 @@ print(f"Train Data: {len(train_list)}")
 labels = [path.split('/')[-2] for path in train_list]
 
 # split
-train_list, valid_list = train_test_split(train_list, test_size=0.2, stratify=labels, random_state=seed)
+train_list, valid_list = train_test_split(train_list, 
+    test_size=0.2, 
+    stratify=labels, # 对有些数据集需要注释掉，标签下只有1个数据的情况
+    random_state=seed)
 print(f"Train Set: {len(train_list)}")
 print(f"Validation Set: {len(valid_list)}")
 
@@ -213,3 +216,14 @@ torch.save({
             'loss'                 : epoch_loss,
             'label_dict'           : label_dict,
             }, CHECKPOINT)
+
+
+'''
+# 清除训练时缓存， 用在notebook时
+
+model = None
+torch.cuda.empty_cache()
+
+import gc
+gc.collect()
+'''
