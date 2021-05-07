@@ -18,14 +18,18 @@ from tqdm import tqdm
 
 from cvt import CvT
 
+# checkpoint
+CHECKPOINT = 'checkpoint.pt'
+total_epochs = 0
+
 # 训练图片路径
-train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
-#train_dir = 'data/test'
+#train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
+train_dir = 'data/test'
 
 
 # Training settings
 batch_size = 24
-epochs = 20
+epochs = 2
 lr = 3e-5
 gamma = 0.7
 seed = 42
@@ -55,19 +59,16 @@ os.makedirs('data', exist_ok=True)
 # 准备 labels
 label_list = os.listdir(train_dir)
 label_dict = { v:i for i,v in enumerate(label_list)}
-
 print(f"num_classes: {len(label_list)}")
 
 # load data
 train_list = glob.glob(os.path.join(train_dir+'/*','*.jpg'))
-
 print(f"Train Data: {len(train_list)}")
 
 labels = [path.split('/')[-2] for path in train_list]
 
 # split
 train_list, valid_list = train_test_split(train_list, test_size=0.2, stratify=labels, random_state=seed)
-
 print(f"Train Set: {len(train_list)}")
 print(f"Validation Set: {len(valid_list)}")
 
@@ -156,6 +157,17 @@ scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
 
 
 
+# 载入 checkpoint
+if os.path.exists(CHECKPOINT):
+    checkpoint = torch.load(CHECKPOINT)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    total_epochs = checkpoint['epoch']
+    last_loss = checkpoint['loss']
+    last_label = checkpoint['label_dict']
+    print(f"Loaded {CHECKPOINT}: epochs= {total_epochs}, loss= {last_loss:.6f}, num_classes= {len(last_label)}")
+
+
 for epoch in range(epochs):
     epoch_loss = 0
     epoch_accuracy = 0
@@ -192,3 +204,12 @@ for epoch in range(epochs):
     print(
         f"Epoch : {epoch+1} - loss : {epoch_loss:.4f} - acc: {epoch_accuracy:.4f} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
     )
+
+# 保存
+torch.save({
+            'epoch'                : total_epochs+epochs,
+            'model_state_dict'     : model.state_dict(),
+            'optimizer_state_dict' : optimizer.state_dict(),
+            'loss'                 : epoch_loss,
+            'label_dict'           : label_dict,
+            }, CHECKPOINT)
