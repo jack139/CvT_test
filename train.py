@@ -19,17 +19,17 @@ from tqdm import tqdm
 from cvt import CvT
 
 # checkpoint
-CHECKPOINT = 'checkpoint.pt'
+CHECKPOINT = 'data/checkpoint.pt'
 total_epochs = 0
 
 # 训练图片路径
-train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
-#train_dir = 'data/test'
+#train_dir = '/home/tao/ramdisk/AFDB_face_dataset'
+train_dir = 'data/test'
 
 
 # Training settings
-batch_size = 24
-epochs = 2
+batch_size = 20
+epochs = 200
 lr = 3e-5
 gamma = 0.7
 seed = 42
@@ -168,7 +168,7 @@ if os.path.exists(CHECKPOINT):
     total_epochs = checkpoint['epoch']
     last_loss = checkpoint['loss']
     last_label = checkpoint['label_dict']
-    print(f"Loaded {CHECKPOINT}: epochs= {total_epochs}, loss= {last_loss:.6f}, num_classes= {len(last_label)}")
+    print(f"Loaded {CHECKPOINT}: epochs= {total_epochs}, loss= {last_loss:.4f}, num_classes= {len(last_label)}")
 
 
 for epoch in range(epochs):
@@ -205,17 +205,17 @@ for epoch in range(epochs):
             epoch_val_loss += val_loss / len(valid_loader)
 
     print(
-        f"Epoch : {epoch+1} - loss : {epoch_loss:.4f} - acc: {epoch_accuracy:.4f} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
+        f"Epoch : {total_epochs+epoch+1} - loss : {epoch_loss:.4f} - acc: {epoch_accuracy:.4f} - val_loss : {epoch_val_loss:.4f} - val_acc: {epoch_val_accuracy:.4f}\n"
     )
 
-# 保存
-torch.save({
-            'epoch'                : total_epochs+epochs,
+    # 保存
+    torch.save({
+            'epoch'                : total_epochs+epoch+1,
             'model_state_dict'     : model.state_dict(),
             'optimizer_state_dict' : optimizer.state_dict(),
             'loss'                 : epoch_loss,
             'label_dict'           : label_dict,
-            }, CHECKPOINT)
+        }, CHECKPOINT)
 
 
 '''
